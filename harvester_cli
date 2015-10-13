@@ -1,0 +1,121 @@
+#!/usr/bin/env php
+
+<?php
+
+/**
+ * Very simple OAI harvester interface to 
+ * phpoaipmh (https://github.com/caseyamcl/phpoaipmh)
+ *
+ * @author Till Kinstler <kinstler@gbv.de>
+ */
+
+require_once __DIR__ . "/vendor/autoload.php";
+
+try {
+    if(!isset($argv[1]) || !file_exists($argv[1])) {
+        throw new Exception("Usage: " . $argv[0] . " CONFIG_FILE");
+    }
+    $conf = parse_ini_file($argv[1]);
+    $confdir = pathinfo($argv[1]);
+} catch(Exception $e) {
+    error_log($e->getMessage() . "\n");
+    echo $e->getMessage() . "\n";
+    exit(1);
+}
+
+$exit = false;
+
+if(!isset($conf['name'])) {
+    error_log("required parameter name not set in config file\n");
+    $exit = true;
+} else {
+    $name = $conf['name'];
+}
+
+if(!isset($conf['metadataPrefix'])) {
+    error_log("required parameter metadataPrefix not set in config file\n");
+    $exit = true;
+} else {
+    $format = $conf['metadataPrefix'];
+}
+if(!isset($conf['url'])) {
+    error_log("required parameter url not set in config file\n");
+    $exit = true;
+} else {
+    $url = $conf['url'];
+}
+$granularity = \Phpoaipmh\Granularity::DATE;
+if(isset($conf['granularity'])) {
+    if($conf['granularity'] == "s") $granularity = \Phpoaipmh\Granularity::DATE_AND_TIME;
+}
+
+if ($granularity == \Phpoaipmh\Granularity::DATE) {
+    $until = new DateTime();
+    $until->modify("-1 day");
+} else {
+    $until = null;
+}
+
+if (isset($conf['set'])) {
+    $set = $conf['set'];
+} else {
+    $set = null;
+}
+
+if (isset($conf['dir'])) {
+    $dir = $conf['dir'];
+} else {
+    $dir = ".";
+}
+
+if ($exit) exit(1);
+
+$datestampfile = $confdir['dirname'] . "/" . $name . ".datestamp";
+if (file_exists($datestampfile)) {
+    try {
+         $datestamps = file($datestampfile);
+         $from = new DateTime(end($datestamps));
+    } catch(Exception $e) {
+         error_log($e->getMessage() . "\n");
+         exit(1);
+    }
+} else {
+    $from = null;
+}
+
+$dom = new DOMDocument("1.0");
+$dom->formatOutput = true;
+$domDocuments = $dom->createElement("records");
+$dom->appendChild($domDocuments);
+
+$rundate = new DateTime();
+$client = new \Phpoaipmh\Client($url);
+$harvester = new \Phpoaipmh\Endpoint($client, $granularity);
+
+$docs = $harvester->listRecords($format,$from,$until,$set);
+
+while($doc = $docs->nextItem()) {
+    $document = $dom->importNode(dom_import_simplexml($doc), true);
+    $domDocuments->appendChild($document);
+    $dom->appendChild($domDocuments);
+}
+
+$fname = $dir . "/" . $name . "_" . $from->format("Y-m-d") . ".xml";
+if($outfile = fopen($fname, "w")) {
+    fwrite($outfile, $dom->saveXML());
+    fclose($outfile);
+} else {
+    error_log("Could not open output file " . $fname . "for writing.\n");
+    echo($dom->saveXML());
+    exit(1);
+} 
+
+// write datestamps
+try {
+    file_put_contents($datestampfile, $rundate->format("Y-m-d\TH:i:s\Z") . "\n", FILE_APPEND);
+} catch(Exception $e) {
+    error_log($e->getMessage() . "\n");
+    exit(1);
+}
+
+?>
