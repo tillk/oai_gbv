@@ -86,19 +86,21 @@ if (file_exists($datestampfile)) {
 $dom = new DOMDocument("1.0");
 $dom->formatOutput = true;
 $domDocuments = $dom->createElement("records");
+$attribute = $dom->createAttribute("xmlns:xsi");
+$attribute->value = "http://www.w3.org/2001/XMLSchema-instance";
+$domDocuments->appendChild($attribute);
 $dom->appendChild($domDocuments);
 
-$rundate = new DateTime("now", DateTimeZone::UTC);
+$rundate = new DateTime("now", new DateTimeZone("UTC"));
 $client = new \Phpoaipmh\Client($url);
 $harvester = new \Phpoaipmh\Endpoint($client, $granularity);
 
 $docs = $harvester->listRecords($format,$from,$until,$set);
 
 while($doc = $docs->nextItem()) {
-echo $doc->saveXML();
-/*    $document = $dom->importNode(dom_import_simplexml($doc), true);
+    $document = $dom->importNode(dom_import_simplexml($doc), true);
     $domDocuments->appendChild($document);
-*/    $dom->appendChild($domDocuments);
+    $dom->appendChild($domDocuments);
 }
 
 $fname = $dir . "/" . $name . "_" . $from->format("Y-m-d") . ".xml";
