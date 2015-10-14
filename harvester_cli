@@ -88,16 +88,17 @@ $dom->formatOutput = true;
 $domDocuments = $dom->createElement("records");
 $dom->appendChild($domDocuments);
 
-$rundate = new DateTime();
+$rundate = new DateTime("now", DateTimeZone::UTC);
 $client = new \Phpoaipmh\Client($url);
 $harvester = new \Phpoaipmh\Endpoint($client, $granularity);
 
 $docs = $harvester->listRecords($format,$from,$until,$set);
 
 while($doc = $docs->nextItem()) {
-    $document = $dom->importNode(dom_import_simplexml($doc), true);
+echo $doc->saveXML();
+/*    $document = $dom->importNode(dom_import_simplexml($doc), true);
     $domDocuments->appendChild($document);
-    $dom->appendChild($domDocuments);
+*/    $dom->appendChild($domDocuments);
 }
 
 $fname = $dir . "/" . $name . "_" . $from->format("Y-m-d") . ".xml";
@@ -106,7 +107,7 @@ if($outfile = fopen($fname, "w")) {
     fclose($outfile);
 } else {
     error_log("Could not open output file " . $fname . "for writing.\n");
-    echo($dom->saveXML());
+    echo $dom->saveXML();
     exit(1);
 } 
 
