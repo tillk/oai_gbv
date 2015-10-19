@@ -68,6 +68,12 @@ if (isset($conf['dir'])) {
     $dir = ".";
 }
 
+if (isset($conf['output'])) {
+    $output = $conf['output'];
+} else {
+    $output = "f";
+}
+
 if ($exit) exit(1);
 
 $datestampfile = $confdir['dirname'] . "/" . $name . ".datestamp";
@@ -83,35 +89,49 @@ if (file_exists($datestampfile)) {
     $from = null;
 }
 
-$dom = new DOMDocument("1.0");
-$dom->formatOutput = true;
-$domDocuments = $dom->createElement("records");
-$attribute = $dom->createAttribute("xmlns:xsi");
-$attribute->value = "http://www.w3.org/2001/XMLSchema-instance";
-$domDocuments->appendChild($attribute);
-$dom->appendChild($domDocuments);
-
 $rundate = new DateTime("now", new DateTimeZone("UTC"));
 $client = new \Phpoaipmh\Client($url);
 $harvester = new \Phpoaipmh\Endpoint($client, $granularity);
 
 $docs = $harvester->listRecords($format,$from,$until,$set);
 
-while($doc = $docs->nextItem()) {
-    $document = $dom->importNode(dom_import_simplexml($doc), true);
-    $domDocuments->appendChild($document);
+if (!$output == "d") {
+    $dom = new DOMDocument("1.0");
+    $dom->formatOutput = true;
+    $domDocuments = $dom->createElementNS("http://www.openarchives.org/OAI/2.0/", "ListRecords");
     $dom->appendChild($domDocuments);
+    while($doc = $docs->nextItem()) {
+        $document = $dom->importNode(dom_import_simplexml($doc), true);
+        $domDocuments->appendChild($document);
+        $dom->appendChild($domDocuments);
+    }
+    $fname = $dir . "/" . $name . "_" . $from->format("Y-m-d") . ".xml";
+    if($outfile = fopen($fname, "w")) {
+        fwrite($outfile, $dom->saveXML());
+        fclose($outfile);
+    } else {
+        error_log("Could not open output file " . $fname . "for writing.\n");
+        echo $dom->saveXML();
+        exit(1);
+    }
+} else {
+    while($doc = $docs->nextItem()) {
+        $fname = $dir . "/" . microtime(true);
+        $dom = new DomDocument('1.0');
+        $dom->formatOutput = true;
+        $domDocument = $dom->importNode(dom_import_simplexml($doc), true);
+        $dom->appendChild($domDocument);
+        if ($outfile = fopen($fname, "w")) {
+            fwrite($outfile, $dom->saveXML());
+            fclose($outfile);
+        } else {
+            error_log("Could not open output file " . $fname . "for writing.\n");
+            echo $dom->saveXML();
+            exit(1);
+        }
+    }
 }
 
-$fname = $dir . "/" . $name . "_" . $from->format("Y-m-d") . ".xml";
-if($outfile = fopen($fname, "w")) {
-    fwrite($outfile, $dom->saveXML());
-    fclose($outfile);
-} else {
-    error_log("Could not open output file " . $fname . "for writing.\n");
-    echo $dom->saveXML();
-    exit(1);
-} 
 
 // write datestamps
 try {
