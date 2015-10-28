@@ -1,6 +1,12 @@
 {
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/tillk/phpoaipmh.git"
+        }
+    ],
     "require": {
-        "caseyamcl/phpoaipmh": "~2.0",
+        "caseyamcl/phpoaipmh": "dev-master",
         "guzzlehttp/guzzle":   "~5.0"
     }
 }

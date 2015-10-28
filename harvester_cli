@@ -95,7 +95,7 @@ $harvester = new \Phpoaipmh\Endpoint($client, $granularity);
 
 $docs = $harvester->listRecords($format,$from,$until,$set);
 
-if (!$output == "d") {
+if ($output != "d") {
     $dom = new DOMDocument("1.0");
     $dom->formatOutput = true;
     $domDocuments = $dom->createElementNS("http://www.openarchives.org/OAI/2.0/", "ListRecords");
