@@ -95,12 +95,15 @@ $harvester = new \Phpoaipmh\Endpoint($client, $granularity);
 
 $docs = $harvester->listRecords($format,$from,$until,$set);
 
+$count = 0;
 if ($output != "d") {
     $dom = new DOMDocument("1.0");
     $dom->formatOutput = true;
     $domDocuments = $dom->createElementNS("http://www.openarchives.org/OAI/2.0/", "ListRecords");
     $dom->appendChild($domDocuments);
     while($doc = $docs->nextItem()) {
+        $count++;
+        error_log($count);
         $document = $dom->importNode(dom_import_simplexml($doc), true);
         $domDocuments->appendChild($document);
         $dom->appendChild($domDocuments);
@@ -116,7 +119,9 @@ if ($output != "d") {
     }
 } else {
     while($doc = $docs->nextItem()) {
-        $fname = $dir . "/" . microtime(true);
+        $count++;
+        error_log($count);
+        $fname = $dir . "/" . $count . "_" . microtime(true);
         $dom = new DomDocument('1.0');
         $dom->formatOutput = true;
         $domDocument = $dom->importNode(dom_import_simplexml($doc), true);
