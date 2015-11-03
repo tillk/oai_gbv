@@ -103,7 +103,8 @@ if ($output != "d") {
     $dom->appendChild($domDocuments);
     while($doc = $docs->nextItem()) {
         $count++;
-        error_log($count);
+        $howlong = $rundate->diff(new DateTime("now", new DateTimeZone("UTC")));
+        error_log($count . " records/second: " . $count / $howlong->s);
         $document = $dom->importNode(dom_import_simplexml($doc), true);
         $domDocuments->appendChild($document);
         $dom->appendChild($domDocuments);
@@ -120,7 +121,8 @@ if ($output != "d") {
 } else {
     while($doc = $docs->nextItem()) {
         $count++;
-        error_log($count);
+        $howlong = $rundate->diff(new DateTime("now", new DateTimeZone("UTC")));
+        error_log($count . " records/second: " . $count / $howlong->s);
         $fname = $dir . "/" . $count . "_" . microtime(true);
         $dom = new DomDocument('1.0');
         $dom->formatOutput = true;
