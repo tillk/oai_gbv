@@ -49,11 +49,15 @@ if(isset($conf['granularity'])) {
     if($conf['granularity'] == "s") $granularity = \Phpoaipmh\Granularity::DATE_AND_TIME;
 }
 
-if ($granularity == \Phpoaipmh\Granularity::DATE) {
-    $until = new DateTime();
-    $until->modify("-1 day");
+if (isset($conf['until'])) {
+    $until = new DateTime($conf['until']);
 } else {
-    $until = null;
+    if ($granularity == \Phpoaipmh\Granularity::DATE) {
+        $until = new DateTime();
+        $until->modify("-1 day");
+    } else {
+        $until = null;
+    }
 }
 
 if (isset($conf['set'])) {
@@ -72,6 +76,12 @@ if (isset($conf['output'])) {
     $output = $conf['output'];
 } else {
     $output = "f";
+}
+
+if (isset($conf['records_per_file']) && is_int($conf['records_per_file'])) {
+    $records_per_file = $conf['records_per_file'];
+} else {
+    $records_per_file = 10000;
 }
 
 if ($exit) exit(1);
@@ -97,20 +107,49 @@ $docs = $harvester->listRecords($format,$from,$until,$set);
 
 $count = 0;
 if ($output != "d") {
+    $roundcount = 0;
+    $startcount = 0;
     $dom = new DOMDocument("1.0");
     $dom->formatOutput = true;
     $domDocuments = $dom->createElementNS("http://www.openarchives.org/OAI/2.0/", "ListRecords");
     $dom->appendChild($domDocuments);
     while($doc = $docs->nextItem()) {
         $count++;
+        $roundcount++;
         $now = new DateTime("now", new DateTimeZone("UTC"));
         $howlong = $now->getTimestamp() - $rundate->getTimestamp();
         error_log($count . " records/second: " . $count / $howlong);
         $document = $dom->importNode(dom_import_simplexml($doc), true);
         $domDocuments->appendChild($document);
         $dom->appendChild($domDocuments);
+        if ($roundcount >= $records_per_file) {
+            $roundcount = 0;
+            if (isset($from)) {
+               $fname = $dir . "/" . $name . "_" . $startcount . "_" . $count . "_" . $from->format("Y-m-d") . ".xml";
+            } else {
+                $fname = $dir . "/" . $name . "_" . $startcount . "_" . $count .".xml";
+            }
+            if($outfile = fopen($fname, "w")) {
+                fwrite($outfile, $dom->saveXML());
+                fclose($outfile);
+            } else {
+                error_log("Could not open output file " . $fname . "for writing.\n");
+                echo $dom->saveXML();
+                exit(1);
+            }
+            $dom = new DOMDocument("1.0");
+            $dom->formatOutput = true;
+            $domDocuments = $dom->createElementNS("http://www.openarchives.org/OAI/2.0/", "ListRecords");
+            $dom->appendChild($domDocuments);
+            $startcount = $count;
+        }
     }
-    $fname = $dir . "/" . $name . "_" . $from->format("Y-m-d") . ".xml";
+    // and write the remaining records
+    if (isset($from)) {
+        $fname = $dir . "/" . $name . "_" . $startcount . "_" . $count . "_" . $from->format("Y-m-d") . ".xml";
+    } else {
+        $fname = $dir . "/" . $name . "_" . $startcount . "_" . $count .".xml";
+    }
     if($outfile = fopen($fname, "w")) {
         fwrite($outfile, $dom->saveXML());
         fclose($outfile);
@@ -144,7 +183,11 @@ if ($output != "d") {
 
 // write datestamps
 try {
-    file_put_contents($datestampfile, $rundate->format("Y-m-d\TH:i:s\Z") . "\n", FILE_APPEND);
+    if (isset($until)) {
+        file_put_contents($datestampfile, $until->format("Y-m-d\TH:i:s\Z") . "\n", FILE_APPEND);
+    } else {
+        file_put_contents($datestampfile, $rundate->format("Y-m-d\TH:i:s\Z") . "\n", FILE_APPEND);
+    }
 } catch(Exception $e) {
     error_log($e->getMessage() . "\n");
     exit(1);
